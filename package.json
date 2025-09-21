@@ -14,7 +14,7 @@
   "activationEvents": [
     "onCommand:tsgrep.search"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/shantanu2307/tsgrep-vscode-extension"
@@ -36,15 +36,19 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "webpack --mode production",
+    "compile": "webpack --mode development",
+    "watch": "webpack --watch --mode development",
+    "test-compile": "tsc -p ./",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
     "@types/vscode": "^1.60.0",
-    "typescript": "^5.9.2"
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.2",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "tsgrep": "^2.0.1"
