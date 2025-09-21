@@ -73,24 +73,27 @@ const getSearchResults = async (query: string): Promise<SearchResult[]> => {
     return results;
   }
 
-  const workspaceFolder = vscode.workspace.workspaceFolders[0];
-  const fsPath = workspaceFolder.uri.fsPath;
-
-  const searchResults = await search(query, fsPath, {
-    gitignore: true,
-  });
-
   const cache: Record<string, Set<number>> = {};
-  for (const result of searchResults) {
-    const content = readContent(result.file, result.line);
-    cache[result.file] ??= new Set<number>();
-    if (!cache[result.file].has(result.line)) {
-      results.push({
-        file: result.file,
-        line: result.line,
-        content: content,
-      });
-      cache[result.file].add(result.line);
+  for (const folder of vscode.workspace.workspaceFolders) {
+    // the folder path to search in
+    const folderPath = folder.uri.fsPath;
+
+    // respect gitignore for each folder.
+    const searchResults = await search(query, folderPath, {
+      gitignore: true,
+    });
+
+    for (const result of searchResults) {
+      const content = readContent(result.file, result.line);
+      cache[result.file] ??= new Set<number>();
+      if (!cache[result.file].has(result.line)) {
+        results.push({
+          file: result.file,
+          line: result.line,
+          content: content,
+        });
+        cache[result.file].add(result.line);
+      }
     }
   }
 
