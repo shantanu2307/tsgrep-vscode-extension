@@ -17,6 +17,28 @@ interface SearchResult {
 const PREVIEW_PANEL_KEY = 'previewPanel';
 const OUTPUT_CHANNEL_KEY = 'outputChannel';
 
+const generateCustomFolderPaths = (folders: string[]): string[] => {
+  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+  const workspacePaths = workspaceFolders.map((wf) => wf.uri.fsPath);
+
+  const finalPaths: string[] = [];
+
+  workspacePaths.forEach((workspacePath) => {
+    folders.forEach((folder) => {
+      // If folder is absolute, use it directly
+      if (path.isAbsolute(folder)) {
+        finalPaths.push(folder);
+      } else {
+        // Otherwise, resolve relative to the workspace folder
+        finalPaths.push(path.join(workspacePath, folder));
+      }
+    });
+  });
+
+  // Remove duplicates
+  return Array.from(new Set(finalPaths));
+};
+
 export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('Extension tsgrep Debug');
   objectStore.set<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY, outputChannel);
@@ -28,9 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
       ignoreFocusOut: true,
     });
 
-    if (!query) {
-      return;
-    }
+    if (!query) return;
 
     try {
       const searchResults = await getSearchResults(query);
@@ -52,17 +72,11 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 const readContent = (file: string, line: number): string => {
-  if (!fs.existsSync(file)) {
-    return '';
-  }
+  if (!fs.existsSync(file)) return '';
   const content = fs.readFileSync(file, 'utf8');
   const lines = content.split('\n');
-  const totalLines = lines.length;
-  if (line < 1 || line > totalLines) {
-    return '';
-  }
-  const contentLines = lines[line - 1];
-  return contentLines.trim();
+  if (line < 1 || line > lines.length) return '';
+  return lines[line - 1].trim();
 };
 
 const getSearchResults = async (query: string): Promise<SearchResult[]> => {
@@ -73,25 +87,32 @@ const getSearchResults = async (query: string): Promise<SearchResult[]> => {
     return results;
   }
 
-  const cache: Record<string, Set<number>> = {};
-  for (const folder of vscode.workspace.workspaceFolders) {
-    // the folder path to search in
-    const folderPath = folder.uri.fsPath;
+  // Read settings
+  const config = vscode.workspace.getConfiguration('tsgrep');
+  const ignorePatterns = config.get<string[]>('ignorePatterns') ?? [];
+  const shouldUseGitignore = config.get<boolean>('gitignore') ?? true;
+  const extensions = config.get<string[]>('extensions') || ['js', 'ts', 'jsx', 'tsx'];
+  const userDirectories = config.get<string[]>('directories') || [];
 
-    // respect gitignore for each folder.
+  const foldersToSearch =
+    userDirectories.length > 0
+      ? generateCustomFolderPaths(userDirectories)
+      : vscode.workspace.workspaceFolders.map((f) => f.uri.fsPath);
+
+  const cache: Record<string, Set<number>> = {};
+
+  for (const folderPath of foldersToSearch) {
     const searchResults = await search(query, folderPath, {
-      gitignore: true,
+      gitignore: shouldUseGitignore,
+      ignore: ignorePatterns,
+      ext: extensions,
     });
 
     for (const result of searchResults) {
       const content = readContent(result.file, result.line);
       cache[result.file] ??= new Set<number>();
       if (!cache[result.file].has(result.line)) {
-        results.push({
-          file: result.file,
-          line: result.line,
-          content: content,
-        });
+        results.push({ file: result.file, line: result.line, content });
         cache[result.file].add(result.line);
       }
     }
@@ -118,7 +139,6 @@ function showResultsQuickPick(results: SearchResult[], query: string) {
   quickPick.placeholder = `Search results for "${query}" - Use arrow keys to preview, Enter to navigate`;
   quickPick.matchOnDescription = true;
 
-  // Handle selection change for preview
   quickPick.onDidChangeSelection((selection) => {
     if (selection.length > 0) {
       const selected = selection[0] as any;
@@ -152,19 +172,17 @@ function showResultsQuickPick(results: SearchResult[], query: string) {
 }
 
 function showPreview(result: SearchResult) {
-  const previewPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
-  if (previewPanel) {
-    previewPanel.dispose();
+  const existingPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
+  if (existingPanel) {
+    existingPanel.dispose();
     objectStore.delete(PREVIEW_PANEL_KEY);
   }
+
   const panel = vscode.window.createWebviewPanel(
     'searchPreview',
     `Preview: ${path.basename(result.file)}:${result.line}`,
     vscode.ViewColumn.Beside,
-    {
-      enableScripts: true,
-      retainContextWhenHidden: false,
-    },
+    { enableScripts: true, retainContextWhenHidden: false },
   );
 
   try {
@@ -172,51 +190,25 @@ function showPreview(result: SearchResult) {
       panel.webview.html = `<p>File not found: ${result.file}</p>`;
       return;
     }
-    const previewContent = result.content;
+
+    const previewContent = escapeHtml(result.content);
     panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Preview</title>
-    <style>
-        body {
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-            color: var(--vscode-foreground);
-            background-color: var(--vscode-editor-background);
-            padding: 10px;
-            line-height: 1.4;
-        }
-        .line {
-            display: flex;
-            white-space: pre-wrap;
-            margin: 2px 0;
-            font-family: var(--vscode-editor-font-family);
-        }
-        .line-number {
-            color: var(--vscode-descriptionForeground);
-            min-width: 40px;
-            text-align: right;
-            padding-right: 10px;
-            user-select: none;
-        }
-        .match-line {
-            background-color: var(--vscode-textCodeBlock-background);
-            font-weight: bold;
-        }
-        .header {
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview</title>
+<style>
+body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background-color: var(--vscode-editor-background); padding: 10px; line-height: 1.4; }
+.line { display: flex; white-space: pre-wrap; margin: 2px 0; font-family: var(--vscode-editor-font-family); }
+.line-number { color: var(--vscode-descriptionForeground); min-width: 40px; text-align: right; padding-right: 10px; user-select: none; }
+.match-line { background-color: var(--vscode-textCodeBlock-background); font-weight: bold; }
+.header { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--vscode-panel-border); }
+</style>
 </head>
 <body>
-    <div class="header">
-        <h3>${path.basename(result.file)} (Line ${result.line})</h3>
-    </div>
-    <div class="code-preview">${previewContent}</div>
+<div class="header"><h3>${path.basename(result.file)} (Line ${result.line})</h3></div>
+<div class="code-preview"><pre>${previewContent}</pre></div>
 </body>
 </html>`;
   } catch (error) {
@@ -225,47 +217,34 @@ function showPreview(result: SearchResult) {
     )}</p>`;
   }
 
-  // Update the panel reference
   objectStore.set<vscode.WebviewPanel>(PREVIEW_PANEL_KEY, panel);
-
-  // Handle panel disposal
   panel.onDidDispose(() => {
     const previewPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
-    if (previewPanel === panel) {
-      objectStore.delete(PREVIEW_PANEL_KEY);
-    }
+    if (previewPanel === panel) objectStore.delete(PREVIEW_PANEL_KEY);
   });
 }
 
-// Open file at specific line
 function openFileAtLine(result: SearchResult) {
   const openPath = vscode.Uri.file(result.file);
 
   vscode.workspace.openTextDocument(openPath).then((doc) => {
     vscode.window.showTextDocument(doc).then((editor) => {
-      // Reveal the line and select it
-      const line = Math.max(0, result.line - 1); // Convert to 0-based index
+      const line = Math.max(0, result.line - 1);
       const range = editor.document.lineAt(line).range;
       editor.selection = new vscode.Selection(range.start, range.end);
       editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 
-      // Add highlight to the line
       const decorationType = vscode.window.createTextEditorDecorationType({
         backgroundColor: new vscode.ThemeColor('editor.findMatchHighlightBackground'),
         isWholeLine: true,
       });
 
       editor.setDecorations(decorationType, [range]);
-
-      // Remove highlight after 2 seconds
-      setTimeout(() => {
-        decorationType.dispose();
-      }, 2000);
+      setTimeout(() => decorationType.dispose(), 2000);
     });
   });
 }
 
-// Helper function to escape HTML
 function escapeHtml(unsafe: string): string {
   return unsafe
     .replace(/&/g, '&amp;')
@@ -277,8 +256,6 @@ function escapeHtml(unsafe: string): string {
 
 export function deactivate() {
   const outputChannel = objectStore.get<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY);
-  if (outputChannel) {
-    outputChannel.dispose();
-  }
+  if (outputChannel) outputChannel.dispose();
   objectStore.clear();
 }
