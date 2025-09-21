@@ -1,7 +1,7 @@
-import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
-import { search as baseSearch} from 'tsgrep/dist';
+import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
+import { search as baseSearch } from 'tsgrep/dist';
 
 interface SearchResult {
   file: string;
@@ -13,124 +13,112 @@ let outputChannel: vscode.OutputChannel;
 let previewPanel: vscode.WebviewPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  outputChannel = vscode.window.createOutputChannel("Extension tsgrep Debug");
+  outputChannel = vscode.window.createOutputChannel('Extension tsgrep Debug');
 
   // Register the search command
-  const disposable = vscode.commands.registerCommand(
-    "tsgrep.search",
-    async () => {
-      const query = await vscode.window.showInputBox({
-        placeHolder: "Enter your search query...",
-        prompt: "Search across workspace files",
-        ignoreFocusOut: true,
-      });
+  const disposable = vscode.commands.registerCommand('tsgrep.search', async () => {
+    const query = await vscode.window.showInputBox({
+      placeHolder: 'Enter your search query...',
+      prompt: 'Search across workspace files',
+      ignoreFocusOut: true,
+    });
 
-      if (!query) {
-        return;
-      }
-
-      vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Searching...",
-          cancellable: true,
-        },
-        async (progress, token) => {
-          token.onCancellationRequested(() => {
-            outputChannel.appendLine("Search cancelled by user");
-          });
-
-          progress.report({ increment: 0 });
-
-          try {
-            const searchResults = await search(query, progress);
-            if (searchResults.length === 0) {
-              vscode.window.showInformationMessage(
-                `No results found for "${query}"`
-              );
-              return;
-            }
-            showResultsQuickPick(searchResults, query);
-          } catch (error) {
-            outputChannel.appendLine(`Search error: ${error}`);
-            vscode.window.showErrorMessage(
-              `Search failed: ${
-                error instanceof Error ? error.message : String(error)
-              }`
-            );
-          }
-        }
-      );
+    if (!query) {
+      return;
     }
-  );
+
+    vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Searching...',
+        cancellable: true,
+      },
+      async (progress, token) => {
+        token.onCancellationRequested(() => {
+          outputChannel.appendLine('Search cancelled by user');
+        });
+
+        progress.report({ increment: 0 });
+
+        try {
+          const searchResults = await search(query, progress);
+          if (searchResults.length === 0) {
+            vscode.window.showInformationMessage(`No results found for "${query}"`);
+            return;
+          }
+          showResultsQuickPick(searchResults, query);
+        } catch (error) {
+          outputChannel.appendLine(`Search error: ${error}`);
+          vscode.window.showErrorMessage(
+            `Search failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      },
+    );
+  });
   context.subscriptions.push(disposable);
   context.subscriptions.push(outputChannel);
 }
 
 const readContent = (file: string, line: number): string => {
   if (!fs.existsSync(file)) {
-    return "";
+    return '';
   }
-  const content = fs.readFileSync(file, "utf8");
-  const lines = content.split("\n");
+  const content = fs.readFileSync(file, 'utf8');
+  const lines = content.split('\n');
   const totalLines = lines.length;
   if (line < 1 || line > totalLines) {
-    return "";
+    return '';
   }
   const contentLines = lines[line - 1];
   return contentLines.trim();
 };
 
 const search = async (
-    query: string,
-    progress: vscode.Progress<{ increment: number; message?: string }>,
-  ): Promise<SearchResult[]> => {
-    const results: SearchResult[] = [];
+  query: string,
+  progress: vscode.Progress<{ increment: number; message?: string }>,
+): Promise<SearchResult[]> => {
+  const results: SearchResult[] = [];
 
-    if (
-      !vscode.workspace.workspaceFolders ||
-      vscode.workspace.workspaceFolders.length === 0
-    ) {
-      vscode.window.showErrorMessage("No workspace folder open");
-      return results;
-    }
-    const cache:Record<string, Set<number>> = {};
-    const workspaceFolder = vscode.workspace.workspaceFolders[0];
-    const fsPath = workspaceFolder.uri.fsPath;
-    const searchResults = await baseSearch(query, fsPath, {
-      gitignore: true,
-    });
-    for (const result of searchResults) {
-      const content = readContent(result.file, result.line);
-      cache[result.file] ??= new Set<number>();
-      if(!cache[result.file].has(result.line)) {
-        results.push({
-          file: result.file,
-          line: result.line,
-          content: content,
-        });
-        cache[result.file].add(result.line);
-      }
-    }
-    progress.report({
-      increment: 100,
-      message: "Search Completed",
-    });
+  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+    vscode.window.showErrorMessage('No workspace folder open');
     return results;
   }
+  const cache: Record<string, Set<number>> = {};
+  const workspaceFolder = vscode.workspace.workspaceFolders[0];
+  const fsPath = workspaceFolder.uri.fsPath;
+  const searchResults = await baseSearch(query, fsPath, {
+    gitignore: true,
+  });
+  for (const result of searchResults) {
+    const content = readContent(result.file, result.line);
+    cache[result.file] ??= new Set<number>();
+    if (!cache[result.file].has(result.line)) {
+      results.push({
+        file: result.file,
+        line: result.line,
+        content: content,
+      });
+      cache[result.file].add(result.line);
+    }
+  }
+  progress.report({
+    increment: 100,
+    message: 'Search Completed',
+  });
+  return results;
+};
 
 function showResultsQuickPick(results: SearchResult[], query: string) {
   const items = results.map((result, index) => {
     const relativePath = vscode.workspace.asRelativePath(result.file);
     const displayContent =
-      result.content.length > 100
-        ? result.content.substring(0, 100) + "..."
-        : result.content;
+      result.content.length > 100 ? result.content.substring(0, 100) + '...' : result.content;
     return {
       label: `Line ${result.line}: ${displayContent}`,
       description: relativePath,
       detail: `Result ${index + 1} of ${results.length}`,
-      result
+      result,
     };
   });
 
@@ -170,22 +158,19 @@ function showResultsQuickPick(results: SearchResult[], query: string) {
   quickPick.show();
 }
 
-function showPreview(
-  result: SearchResult,
-  existingPanel?: vscode.WebviewPanel
-) {
+function showPreview(result: SearchResult, existingPanel?: vscode.WebviewPanel) {
   if (existingPanel) {
     existingPanel.dispose();
   }
 
   const panel = vscode.window.createWebviewPanel(
-    "searchPreview",
+    'searchPreview',
     `Preview: ${path.basename(result.file)}:${result.line}`,
     vscode.ViewColumn.Beside,
     {
       enableScripts: true,
       retainContextWhenHidden: false,
-    }
+    },
   );
 
   try {
@@ -242,7 +227,7 @@ function showPreview(
 </html>`;
   } catch (error) {
     panel.webview.html = `<p>Error loading preview: ${escapeHtml(
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
     )}</p>`;
   }
 
@@ -261,42 +246,38 @@ function showPreview(
 function openFileAtLine(result: SearchResult) {
   const openPath = vscode.Uri.file(result.file);
 
-  vscode.workspace
-    .openTextDocument(openPath)
-    .then((doc) => {
-      vscode.window.showTextDocument(doc).then((editor) => {
-        // Reveal the line and select it
-        const line = Math.max(0, result.line - 1); // Convert to 0-based index
-        const range = editor.document.lineAt(line).range;
-        editor.selection = new vscode.Selection(range.start, range.end);
-        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+  vscode.workspace.openTextDocument(openPath).then((doc) => {
+    vscode.window.showTextDocument(doc).then((editor) => {
+      // Reveal the line and select it
+      const line = Math.max(0, result.line - 1); // Convert to 0-based index
+      const range = editor.document.lineAt(line).range;
+      editor.selection = new vscode.Selection(range.start, range.end);
+      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 
-        // Add highlight to the line
-        const decorationType = vscode.window.createTextEditorDecorationType({
-          backgroundColor: new vscode.ThemeColor(
-            "editor.findMatchHighlightBackground"
-          ),
-          isWholeLine: true,
-        });
-
-        editor.setDecorations(decorationType, [range]);
-
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-          decorationType.dispose();
-        }, 2000);
+      // Add highlight to the line
+      const decorationType = vscode.window.createTextEditorDecorationType({
+        backgroundColor: new vscode.ThemeColor('editor.findMatchHighlightBackground'),
+        isWholeLine: true,
       });
-    })
+
+      editor.setDecorations(decorationType, [range]);
+
+      // Remove highlight after 2 seconds
+      setTimeout(() => {
+        decorationType.dispose();
+      }, 2000);
+    });
+  });
 }
 
 // Helper function to escape HTML
 function escapeHtml(unsafe: string): string {
   return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 export function deactivate() {
