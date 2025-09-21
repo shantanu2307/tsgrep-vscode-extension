@@ -1,0 +1,13 @@
+# Ignore source
+src/**
+tsconfig.json
+
+# Ignore maps and licenses
+**/*.map
+**/*.LICENSE.txt
+
+# Ignore misc files
+webpack.config.js
+.vscode/
+.git/
+.gitignore
