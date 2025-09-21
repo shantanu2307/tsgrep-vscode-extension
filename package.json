@@ -1,0 +1,51 @@
+{
+  "name": "tsgrep",
+  "displayName": "AST based search for JS/TS files",
+  "description": "A VS Code extension with search, file preview, and navigation",
+  "version": "1.0.0",
+  "publisher": "shantanu2307",
+  "author": "shantanu2307 <shantanugoyal23@gmail.com>",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:tsgrep.search"
+  ],
+  "main": "./out/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shantanu2307/tsgrep-vscode-extension"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "tsgrep.search",
+        "title": "AST Search for JS/TS",
+        "category": "Search"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "tsgrep.search",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/vscode": "^1.60.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "tsgrep": "^2.0.1"
+  }
+}
