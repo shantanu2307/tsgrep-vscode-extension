@@ -16,6 +16,7 @@ interface SearchResult {
 
 const PREVIEW_PANEL_KEY = 'previewPanel';
 const OUTPUT_CHANNEL_KEY = 'outputChannel';
+const LAST_QUERY_KEY = 'lastQuery';
 
 const generateCustomFolderPaths = (folders: string[]): string[] => {
   const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
@@ -44,13 +45,18 @@ export function activate(context: vscode.ExtensionContext) {
   objectStore.set<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY, outputChannel);
 
   const disposable = vscode.commands.registerCommand('tsgrep.search', async () => {
+    const lastQuery = objectStore.get<string>(LAST_QUERY_KEY);
+
     const query = await vscode.window.showInputBox({
+      value: lastQuery, // Set the initial value
       placeHolder: 'Enter your search query...',
       prompt: 'Search across workspace files',
       ignoreFocusOut: true,
     });
 
     if (!query) return;
+
+    objectStore.set<string>(LAST_QUERY_KEY, query);
 
     try {
       const searchResults = await getSearchResults(query);
