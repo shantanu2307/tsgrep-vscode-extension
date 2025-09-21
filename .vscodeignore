@@ -1,13 +1,18 @@
 # Ignore source
 src/**
 tsconfig.json
+eslint.config.mts
+webpack.config.js
+README.md
 
-# Ignore maps and licenses
+# Ignore maps and licenses and type seclarations
 **/*.map
 **/*.LICENSE.txt
+**/*.d.ts
 
 # Ignore misc files
-webpack.config.js
 .vscode/
 .git/
 .gitignore
+.prettierignore
+
