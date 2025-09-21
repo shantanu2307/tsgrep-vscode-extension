@@ -1,7 +1,12 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import { search as baseSearch } from 'tsgrep/dist';
+import vscode from 'vscode';
+import path from 'path';
+import fs from 'fs';
+
+// API
+import { search } from 'tsgrep/dist';
+
+// Stores
+import objectStore from './ObjectStore';
 
 interface SearchResult {
   file: string;
@@ -9,13 +14,13 @@ interface SearchResult {
   content: string;
 }
 
-let outputChannel: vscode.OutputChannel;
-let previewPanel: vscode.WebviewPanel | undefined;
+const PREVIEW_PANEL_KEY = 'previewPanel';
+const OUTPUT_CHANNEL_KEY = 'outputChannel';
 
 export function activate(context: vscode.ExtensionContext) {
-  outputChannel = vscode.window.createOutputChannel('Extension tsgrep Debug');
+  const outputChannel = vscode.window.createOutputChannel('Extension tsgrep Debug');
+  objectStore.set<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY, outputChannel);
 
-  // Register the search command
   const disposable = vscode.commands.registerCommand('tsgrep.search', async () => {
     const query = await vscode.window.showInputBox({
       placeHolder: 'Enter your search query...',
@@ -27,35 +32,21 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: 'Searching...',
-        cancellable: true,
-      },
-      async (progress, token) => {
-        token.onCancellationRequested(() => {
-          outputChannel.appendLine('Search cancelled by user');
-        });
-
-        progress.report({ increment: 0 });
-
-        try {
-          const searchResults = await search(query, progress);
-          if (searchResults.length === 0) {
-            vscode.window.showInformationMessage(`No results found for "${query}"`);
-            return;
-          }
-          showResultsQuickPick(searchResults, query);
-        } catch (error) {
-          outputChannel.appendLine(`Search error: ${error}`);
-          vscode.window.showErrorMessage(
-            `Search failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      },
-    );
+    try {
+      const searchResults = await getSearchResults(query);
+      if (searchResults.length === 0) {
+        vscode.window.showInformationMessage(`No results found for "${query}"`);
+        return;
+      }
+      showResultsQuickPick(searchResults, query);
+    } catch (error) {
+      outputChannel.appendLine(`Search error: ${error}`);
+      vscode.window.showErrorMessage(
+        `Search failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   });
+
   context.subscriptions.push(disposable);
   context.subscriptions.push(outputChannel);
 }
@@ -74,22 +65,22 @@ const readContent = (file: string, line: number): string => {
   return contentLines.trim();
 };
 
-const search = async (
-  query: string,
-  progress: vscode.Progress<{ increment: number; message?: string }>,
-): Promise<SearchResult[]> => {
+const getSearchResults = async (query: string): Promise<SearchResult[]> => {
   const results: SearchResult[] = [];
 
   if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
     vscode.window.showErrorMessage('No workspace folder open');
     return results;
   }
-  const cache: Record<string, Set<number>> = {};
+
   const workspaceFolder = vscode.workspace.workspaceFolders[0];
   const fsPath = workspaceFolder.uri.fsPath;
-  const searchResults = await baseSearch(query, fsPath, {
+
+  const searchResults = await search(query, fsPath, {
     gitignore: true,
   });
+
+  const cache: Record<string, Set<number>> = {};
   for (const result of searchResults) {
     const content = readContent(result.file, result.line);
     cache[result.file] ??= new Set<number>();
@@ -102,10 +93,7 @@ const search = async (
       cache[result.file].add(result.line);
     }
   }
-  progress.report({
-    increment: 100,
-    message: 'Search Completed',
-  });
+
   return results;
 };
 
@@ -131,7 +119,7 @@ function showResultsQuickPick(results: SearchResult[], query: string) {
   quickPick.onDidChangeSelection((selection) => {
     if (selection.length > 0) {
       const selected = selection[0] as any;
-      showPreview(selected.result, previewPanel);
+      showPreview(selected.result);
     }
   });
 
@@ -140,29 +128,32 @@ function showResultsQuickPick(results: SearchResult[], query: string) {
     if (selection && selection.result) {
       openFileAtLine(selection.result);
       quickPick.hide();
+      const previewPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
       if (previewPanel) {
         previewPanel.dispose();
-        previewPanel = undefined;
+        objectStore.delete(PREVIEW_PANEL_KEY);
       }
     }
   });
 
   quickPick.onDidHide(() => {
     quickPick.dispose();
+    const previewPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
     if (previewPanel) {
       previewPanel.dispose();
-      previewPanel = undefined;
+      objectStore.delete(PREVIEW_PANEL_KEY);
     }
   });
 
   quickPick.show();
 }
 
-function showPreview(result: SearchResult, existingPanel?: vscode.WebviewPanel) {
-  if (existingPanel) {
-    existingPanel.dispose();
+function showPreview(result: SearchResult) {
+  const previewPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
+  if (previewPanel) {
+    previewPanel.dispose();
+    objectStore.delete(PREVIEW_PANEL_KEY);
   }
-
   const panel = vscode.window.createWebviewPanel(
     'searchPreview',
     `Preview: ${path.basename(result.file)}:${result.line}`,
@@ -232,12 +223,13 @@ function showPreview(result: SearchResult, existingPanel?: vscode.WebviewPanel) 
   }
 
   // Update the panel reference
-  previewPanel = panel;
+  objectStore.set<vscode.WebviewPanel>(PREVIEW_PANEL_KEY, panel);
 
   // Handle panel disposal
   panel.onDidDispose(() => {
+    const previewPanel = objectStore.get<vscode.WebviewPanel>(PREVIEW_PANEL_KEY);
     if (previewPanel === panel) {
-      previewPanel = undefined;
+      objectStore.delete(PREVIEW_PANEL_KEY);
     }
   });
 }
@@ -281,7 +273,9 @@ function escapeHtml(unsafe: string): string {
 }
 
 export function deactivate() {
+  const outputChannel = objectStore.get<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY);
   if (outputChannel) {
     outputChannel.dispose();
   }
+  objectStore.clear();
 }
