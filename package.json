@@ -33,35 +33,7 @@
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f"
       }
-    ],
-    "configuration": {
-      "title": "tsgrep Settings",
-      "properties": {
-        "tsgrep.ignorePatterns": {
-        "type": "array",
-        "default": [],
-        "items": { "type": "string" },
-        "description": "Glob patterns to ignore during search"
-      },
-      "tsgrep.gitignore": {
-        "type": "boolean",
-        "default": true,
-        "description": "Respect .gitignore files when searching"
-      },
-      "tsgrep.extensions": {
-        "type": "array",
-        "default": ["js", "ts", "jsx", "tsx"],
-        "items": { "type": "string" },
-        "description": "File extensions to include in search"
-      },
-      "tsgrep.directories": {
-        "type": "array",
-        "default": [],
-        "items": { "type": "string" },
-        "description": "Optional directories to search instead of the whole workspace"
-      }
-    }
-  }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "rm -rf dist && webpack --mode production",
