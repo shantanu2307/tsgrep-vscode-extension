@@ -132,15 +132,15 @@ async function showSearchMenu() {
         description: 'Toggle ignoring files specified in .gitignore',
       },
       {
-        label: `$(gear) Extensions: ${extensions.join(',')}`,
+        label: `$(extensions) Extensions: ${extensions.join(',')}`,
         description: 'Configure file extensions to search',
       },
       {
-        label: `$(gear) Directories: ${directories.join(',')}`,
+        label: `$(folder) Directories: ${directories.join(',')}`,
         description: 'Configure custom directory patterns to search',
       },
       {
-        label: `$(gear) Ignores: ${ignores.join(',')}`,
+        label: `$(eye-closed) Ignores: ${ignores.join(',')}`,
         description: 'Configure custom ignore patterns',
       },
     ];
