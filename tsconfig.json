@@ -3,7 +3,6 @@
     "outDir": "dist",
     "declaration": true,
     "target": "es2015",
-    "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "esnext"],
     "skipLibCheck": true,
     "strict": true,

@@ -3,10 +3,13 @@ import path from 'path';
 
 export default {
   target: 'node', // VS Code extensions run in Node
-  entry: './src/extension.ts', // entry point of your extension
+  entry: {
+    extension: './src/extension.ts',
+    'scan.worker': './node_modules/tsgrep/dist/scan.worker.js',
+  }, // entry point of your extension
   output: {
     path: path.resolve(process.cwd(), 'dist'),
-    filename: 'extension.js',
+    filename: '[name].js',
     libraryTarget: 'commonjs2',
   },
   devtool: 'source-map',

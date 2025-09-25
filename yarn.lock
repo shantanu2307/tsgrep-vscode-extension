@@ -1194,6 +1194,11 @@ lodash.merge@^4.6.2:
   resolved "https://registry.yarnpkg.com/lodash.merge/-/lodash.merge-4.6.2.tgz#558aa53b43b661e1925a0afdfa36a9a1085fe57a"
   integrity sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==
 
+lodash@^4.17.21:
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
+  integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
+
 merge-stream@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/merge-stream/-/merge-stream-2.0.0.tgz#52823629a14dd00c9770fb6ad47dc6310f2c1f60"
@@ -1570,10 +1575,10 @@ ts-loader@^9.5.4:
     semver "^7.3.4"
     source-map "^0.7.4"
 
-tsgrep@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/tsgrep/-/tsgrep-3.0.0.tgz#e103e1305f702a3a7ba06c5a6fba117f15fa7b9d"
-  integrity sha512-R0b5Wi9IOL5qrOO1ehr2PCPTM6iMwgJ5k5Nz1XyTT09Qfgt5qEwABhM6O4hpCeUUiTJd0n60Yf4q88IYLguouw==
+tsgrep@^4.3.0:
+  version "4.3.0"
+  resolved "https://registry.yarnpkg.com/tsgrep/-/tsgrep-4.3.0.tgz#8fc63682ab053c05a846c5df110b32123e0808aa"
+  integrity sha512-Kqt5c4v9gfUChxMUfitPFIKRuWW0EMR6BHGIdWeUmOO5t7uXxmwvk+Z+Gbj/9s2mbYqcn2qfK0YLBQX8f/CRaQ==
   dependencies:
     "@babel/parser" "^7.28.4"
     "@babel/traverse" "^7.28.4"
@@ -1581,6 +1586,7 @@ tsgrep@^3.0.0:
     commander "^14.0.1"
     fast-glob "^3.3.3"
     ignore "^7.0.5"
+    lodash "^4.17.21"
 
 type-check@^0.4.0, type-check@~0.4.0:
   version "0.4.0"

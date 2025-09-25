@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 
 // API
-import { search } from 'tsgrep/dist';
+import { search } from 'tsgrep';
 
 // Stores
 import objectStore from './ObjectStore';
@@ -57,14 +57,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(outputChannel);
 }
 
-const readContent = (file: string, line: number): string => {
-  if (!fs.existsSync(file)) return '';
-  const content = fs.readFileSync(file, 'utf8');
-  const lines = content.split('\n');
-  if (line < 1 || line > lines.length) return '';
-  return lines[line - 1].trim();
-};
-
 const getSearchResults = async (query: string): Promise<SearchResult[]> => {
   const results: SearchResult[] = [];
 
@@ -84,26 +76,13 @@ const getSearchResults = async (query: string): Promise<SearchResult[]> => {
       ? generateCustomFolderPaths(userDirectories)
       : vscode.workspace.workspaceFolders.map((f) => f.uri.fsPath);
 
-  const cache: Record<string, Set<number>> = {};
+  const searchResults = await search(query, foldersToSearch, {
+    gitignore: shouldUseGitignore,
+    ignore: ignorePatterns,
+    ext: extensions,
+  });
 
-  for (const folderPath of foldersToSearch) {
-    const searchResults = await search(query, folderPath, {
-      gitignore: shouldUseGitignore,
-      ignore: ignorePatterns,
-      ext: extensions,
-    });
-
-    for (const result of searchResults) {
-      const content = readContent(result.file, result.line);
-      cache[result.file] ??= new Set<number>();
-      if (!cache[result.file].has(result.line)) {
-        results.push({ file: result.file, line: result.line, content });
-        cache[result.file].add(result.line);
-      }
-    }
-  }
-
-  return results;
+  return searchResults;
 };
 
 // New function to handle the QuickPick settings menu
