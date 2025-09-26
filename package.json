@@ -64,6 +64,6 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "tsgrep": "^4.3.0"
+    "tsgrep": "^4.4.0"
   }
 }

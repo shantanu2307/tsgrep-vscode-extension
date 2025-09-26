@@ -1575,10 +1575,10 @@ ts-loader@^9.5.4:
     semver "^7.3.4"
     source-map "^0.7.4"
 
-tsgrep@^4.3.0:
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/tsgrep/-/tsgrep-4.3.0.tgz#8fc63682ab053c05a846c5df110b32123e0808aa"
-  integrity sha512-Kqt5c4v9gfUChxMUfitPFIKRuWW0EMR6BHGIdWeUmOO5t7uXxmwvk+Z+Gbj/9s2mbYqcn2qfK0YLBQX8f/CRaQ==
+tsgrep@^4.4.0:
+  version "4.4.0"
+  resolved "https://registry.yarnpkg.com/tsgrep/-/tsgrep-4.4.0.tgz#8e4f5e6f19f62bfa6e77534b25d9321dea1e35ec"
+  integrity sha512-jmG1oPdqcGQlMb5OX4HcAne1zdUb94Mkvw7sGDFTw5/z0Q3Xd1zRWdF3mldpLSXMoFuO9/PCI34r7a9NPR0mzA==
   dependencies:
     "@babel/parser" "^7.28.4"
     "@babel/traverse" "^7.28.4"

@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 
 // API
-import { search } from 'tsgrep';
+import { search, getQueryCache, getWorkerPool } from 'tsgrep';
 
 // Stores
 import objectStore from './ObjectStore';
@@ -354,8 +354,12 @@ function escapeHtml(unsafe: string): string {
 
 export function deactivate() {
   const outputChannel = objectStore.get<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY);
+  const workerPool = getWorkerPool();
+  const queryCache = getQueryCache();
   const quickPick = objectStore.get<vscode.QuickPick<vscode.QuickPickItem>>(QUICK_PICK_KEY);
   if (quickPick) quickPick.dispose();
   if (outputChannel) outputChannel.dispose();
+  workerPool.destroy();
+  queryCache.clear();
   objectStore.clear();
 }

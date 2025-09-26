@@ -16,3 +16,4 @@ README.md
 .gitignore
 .prettierignore
 
+node_modules/
