@@ -57,12 +57,13 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(outputChannel);
 }
 
-const getSearchResults = async (query: string): Promise<SearchResult[]> => {
-  const results: SearchResult[] = [];
-
+const getSearchResults = async (
+  query: string,
+  onProgress?: (results: SearchResult[]) => void,
+): Promise<SearchResult[]> => {
   if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
     vscode.window.showErrorMessage('No workspace folder open');
-    return results;
+    return [];
   }
 
   // Read settings
@@ -80,6 +81,8 @@ const getSearchResults = async (query: string): Promise<SearchResult[]> => {
     gitignore: shouldUseGitignore,
     ignore: ignorePatterns,
     ext: extensions,
+    interval: 5 * 1000, // update every 5 seconds
+    onProgress,
   });
 
   return searchResults;
@@ -153,12 +156,14 @@ async function showSearchMenu() {
       quickPick.hide();
 
       try {
-        const searchResults = await getSearchResults(query);
+        const updateSearchResults = showResultsQuickPick(query);
+        const searchResults = await getSearchResults(query, updateSearchResults);
+
+        // Final check - if no results were found during the entire search
         if (searchResults.length === 0) {
           vscode.window.showInformationMessage(`No results found for "${query}"`);
           return;
         }
-        showResultsQuickPick(searchResults, query);
       } catch (error) {
         const outputChannel = objectStore.get<vscode.OutputChannel>(OUTPUT_CHANNEL_KEY);
         if (outputChannel) {
@@ -219,23 +224,27 @@ async function showSearchMenu() {
   quickPick.show();
 }
 
-function showResultsQuickPick(results: SearchResult[], query: string) {
-  const items = results.map((result, index) => {
-    const relativePath = vscode.workspace.asRelativePath(result.file);
-    const displayContent =
-      result.content.length > 100 ? result.content.substring(0, 100) + '...' : result.content;
-    return {
-      label: `Line ${result.line}: ${displayContent}`,
-      description: relativePath,
-      detail: `Result ${index + 1} of ${results.length}`,
-      result,
-    };
-  });
-
+// map on available items in view port ?
+function showResultsQuickPick(query: string) {
   const quickPick = vscode.window.createQuickPick();
-  quickPick.items = items;
-  quickPick.placeholder = `Search results for "${query}" - Use arrow keys to preview, Enter to navigate`;
+  quickPick.placeholder = `Searching for "${query}"... - Use arrow keys to preview, Enter to navigate`;
   quickPick.matchOnDescription = true;
+  // Function to update the quick pick items
+  const updateQuickPickItems = (results: SearchResult[]) => {
+    const items = results.map((result, index) => {
+      const relativePath = vscode.workspace.asRelativePath(result.file);
+      const displayContent =
+        result.content.length > 100 ? result.content.substring(0, 100) + '...' : result.content;
+      return {
+        label: `Line ${result.line}: ${displayContent}`,
+        description: relativePath,
+        detail: `Result ${index + 1} of ${results.length}`,
+        result,
+      };
+    });
+    quickPick.items = items;
+    quickPick.placeholder = `Search results for "${query}" (${results.length} found) - Use arrow keys to preview, Enter to navigate`;
+  };
 
   quickPick.onDidChangeSelection((selection) => {
     if (selection.length > 0) {
@@ -267,6 +276,7 @@ function showResultsQuickPick(results: SearchResult[], query: string) {
   });
 
   quickPick.show();
+  return updateQuickPickItems;
 }
 
 function showPreview(result: SearchResult) {
